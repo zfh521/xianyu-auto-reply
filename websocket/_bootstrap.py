@@ -210,7 +210,8 @@ def run_server():
     import uvicorn
 
     # 解析监听地址：默认 :: 双栈，Windows 或 IPv6 不可用时自动回退到 0.0.0.0
-    listen_host = resolve_listen_host(settings.host, settings.service_port)
+    # listen_host = resolve_listen_host(settings.host, settings.service_port)
+    listen_host = '0.0.0.0'
 
     uvicorn.run(
         "main:app",
