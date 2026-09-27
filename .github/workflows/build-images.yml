@@ -11,18 +11,17 @@
 #   - 推送 v* 标签：打 版本号 + sha 标签
 #   - 手动触发：可自定义标签
 #
-# 前置准备（仓库 Settings → Secrets and variables → Actions）：
-#   Secrets:
-#     - REGISTRY_USERNAME  镜像仓库用户名
-#     - REGISTRY_PASSWORD  镜像仓库密码/AccessToken
-#   Variables（可选，不设则用默认值）:
-#     - IMAGE_REGISTRY  镜像仓库地址（默认 registry.cn-shanghai.aliyuncs.com/zhinian-software）
-#     - IMAGE_PLATFORMS  目标平台（默认 linux/amd64，多架构用逗号分隔如 linux/amd64,linux/arm64）
+# 默认推送到 GitHub Container Registry (ghcr.io)，使用内置 GITHUB_TOKEN 认证，无需额外配置 Secrets。
+# 镜像地址形如 ghcr.io/<owner>/xianyu-backend-web:latest
 #
-# 切换到 GitHub Container Registry (ghcr.io) 时：
-#   - IMAGE_REGISTRY 设为 ghcr.io/<你的用户名>
-#   - REGISTRY_USERNAME 设为 ${{ github.actor }}（或你的用户名）
-#   - REGISTRY_PASSWORD 用一个 PAT（需 write:packages 权限），或改用 GITHUB_TOKEN
+# 切换到阿里云镜像仓库时（仓库 Settings → Secrets and variables → Actions）：
+#   Variables:
+#     - IMAGE_REGISTRY  设为 registry.cn-shanghai.aliyuncs.com/zhinian-software
+#   Secrets:
+#     - REGISTRY_USERNAME  阿里云仓库用户名
+#     - REGISTRY_PASSWORD  阿里云仓库密码/AccessToken
+#   Variables（可选）:
+#     - IMAGE_PLATFORMS  目标平台（默认 linux/amd64，多架构用逗号分隔如 linux/amd64,linux/arm64）
 
 name: Build Images
 
@@ -45,7 +44,7 @@ on:
         default: false
 
 env:
-  IMAGE_REGISTRY: ${{ vars.IMAGE_REGISTRY || 'registry.cn-shanghai.aliyuncs.com/zhinian-software' }}
+  IMAGE_REGISTRY: ${{ vars.IMAGE_REGISTRY || format('ghcr.io/{0}', github.repository_owner) }}
   IMAGE_PLATFORMS: ${{ vars.IMAGE_PLATFORMS || 'linux/amd64' }}
 
 jobs:
@@ -76,10 +75,31 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: 登录镜像仓库
+      - name: 解析仓库地址
+        id: reg
+        run: |
+          REGISTRY="${{ env.IMAGE_REGISTRY }}"
+          # 提取 host（第一个 / 之前的部分，用于 docker login）
+          echo "host=${REGISTRY%%/*}" >> "$GITHUB_OUTPUT"
+          if [[ "${REGISTRY}" == ghcr.io/* ]]; then
+            echo "is_ghcr=true"  >> "$GITHUB_OUTPUT"
+          else
+            echo "is_ghcr=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 登录 GitHub Container Registry
+        if: steps.reg.outputs.is_ghcr == 'true'
         uses: docker/login-action@v3
         with:
-          registry: ${{ env.IMAGE_REGISTRY }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 登录自定义镜像仓库
+        if: steps.reg.outputs.is_ghcr == 'false'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ steps.reg.outputs.host }}
           username: ${{ secrets.REGISTRY_USERNAME }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
 
@@ -119,11 +139,6 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-        with:
-          buildkitd-config-inline: |
-            [registry."${{ env.IMAGE_REGISTRY }}"]
-              http = false
-              insecure = false
 
       - name: 构建并推送
         uses: docker/build-push-action@v6
