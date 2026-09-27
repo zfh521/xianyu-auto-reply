@@ -64,7 +64,7 @@ services:
   backend-web:
     build:
       context: .
-      dockerfile: backend-web/Dockerfile
+      dockerfile: backend-web/Dockerfile-cn
     container_name: xianyu-backend-web
     restart: unless-stopped
     environment:
@@ -128,7 +128,7 @@ services:
   websocket:
     build:
       context: .
-      dockerfile: websocket/Dockerfile
+      dockerfile: websocket/Dockerfile-cn
     container_name: xianyu-websocket
     restart: unless-stopped
     environment:
@@ -184,7 +184,7 @@ services:
   scheduler:
     build:
       context: .
-      dockerfile: scheduler/Dockerfile
+      dockerfile: scheduler/Dockerfile-cn
     container_name: xianyu-scheduler
     restart: unless-stopped
     environment:
@@ -238,7 +238,7 @@ services:
   frontend:
     build:
       context: .
-      dockerfile: docker/frontend/Dockerfile
+      dockerfile: docker/frontend/Dockerfile-cn
     container_name: xianyu-frontend
     restart: unless-stopped
     environment:
